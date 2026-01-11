@@ -110,23 +110,26 @@ export function searchEpisodes(
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
-  // Full-text search using FTS5
+  // Full-text search using LIKE (more reliable than FTS5 external content)
   let episodeIds: Set<string> | null = null;
   if (search) {
-    const ftsResults = db.prepare(`
-      SELECT episode_id FROM episodes_fts WHERE episodes_fts MATCH ?
-    `).all(`"${search.replace(/"/g, '""')}"*`) as { episode_id: string }[];
-    episodeIds = new Set(ftsResults.map((r) => r.episode_id));
+    const searchTerm = `%${search}%`;
+
+    // Search in episodes table
+    const episodeResults = db.prepare(`
+      SELECT id FROM episodes
+      WHERE title LIKE ? OR synopsis LIKE ? OR setting LIKE ? OR tags LIKE ?
+    `).all(searchTerm, searchTerm, searchTerm, searchTerm) as { id: string }[];
+    episodeIds = new Set(episodeResults.map((r) => r.id));
 
     // Also search guest stars
-    const guestFts = db.prepare(`
-      SELECT egs.episode_id
-      FROM guest_stars_fts gsf
-      JOIN guest_stars gs ON gsf.guest_star_id = gs.id
+    const guestResults = db.prepare(`
+      SELECT DISTINCT egs.episode_id
+      FROM guest_stars gs
       JOIN episode_guest_stars egs ON gs.id = egs.guest_star_id
-      WHERE guest_stars_fts MATCH ?
-    `).all(`"${search.replace(/"/g, '""')}"*`) as { episode_id: string }[];
-    guestFts.forEach((r) => episodeIds!.add(r.episode_id));
+      WHERE gs.name LIKE ?
+    `).all(searchTerm) as { episode_id: string }[];
+    guestResults.forEach((r) => episodeIds!.add(r.episode_id));
 
     if (episodeIds.size === 0) {
       return { data: [], total: 0, page, limit, total_pages: 0 };
@@ -240,14 +243,13 @@ export function searchGuestStars(query: string, limit = 10): GuestStar[] {
     `).all(limit) as GuestStar[];
   }
 
-  // Use FTS5 for prefix search
+  // Use LIKE for search
   const results = db.prepare(`
-    SELECT gs.id, gs.name
-    FROM guest_stars_fts gsf
-    JOIN guest_stars gs ON gsf.guest_star_id = gs.id
-    WHERE guest_stars_fts MATCH ?
+    SELECT id, name FROM guest_stars
+    WHERE name LIKE ?
+    ORDER BY name
     LIMIT ?
-  `).all(`"${query.replace(/"/g, '""')}"*`, limit) as GuestStar[];
+  `).all(`%${query}%`, limit) as GuestStar[];
 
   return results;
 }
