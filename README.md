@@ -205,10 +205,56 @@ murder-she-wrote/
 
 ## Next Steps for Scaling
 
-### Hosting Options
-- **Vercel**: Recommended for Next.js apps. Note: SQLite requires persistent storage (use Vercel KV or switch to Postgres)
-- **Railway/Render**: Good for SQLite with persistent volumes
-- **Self-hosted**: Any Node.js hosting with file system access
+### Deploying to Railway (Recommended)
+
+Railway supports persistent volumes, making it ideal for SQLite apps.
+
+1. **Create a Railway account** at [railway.app](https://railway.app)
+
+2. **Install Railway CLI** (optional but helpful):
+   ```bash
+   npm install -g @railway/cli
+   railway login
+   ```
+
+3. **Deploy from GitHub**:
+   - Push your code to GitHub
+   - In Railway dashboard, click "New Project" → "Deploy from GitHub repo"
+   - Select your repository
+   - Railway will auto-detect Next.js and deploy
+
+4. **Add persistent volume** (important for SQLite!):
+   - Go to your service in Railway dashboard
+   - Click "Settings" → "Volumes"
+   - Add a volume mounted at `/app/prisma`
+   - This ensures your database persists across deploys
+
+5. **Set environment variables**:
+   ```
+   DATABASE_URL=file:./prisma/dev.db
+   JWT_SECRET=<generate-a-secure-random-string>
+   NEXT_PUBLIC_APP_URL=https://your-app.up.railway.app
+   ```
+
+6. **Initialize the database** (first time only):
+   ```bash
+   railway run npm run setup
+   ```
+
+Your app will be live at `https://your-app.up.railway.app`!
+
+### Alternative: Vercel + Turso
+
+For serverless deployment, you'd need to switch to Turso (cloud SQLite):
+
+1. Create a Turso database at [turso.tech](https://turso.tech)
+2. Update the database code to use `@libsql/client` instead of `better-sqlite3`
+3. Deploy to Vercel
+
+### Other Hosting Options
+- **Render**: Similar to Railway, supports persistent storage
+- **Fly.io**: Good for SQLite with volume mounts
+- **Self-hosted**: Any VPS (DigitalOcean, Linode, etc.)
 
 ### Moving from SQLite to PostgreSQL
 
