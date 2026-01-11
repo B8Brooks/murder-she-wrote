@@ -5,13 +5,13 @@ import { ensureDb } from '@/lib/db';
 
 export async function GET() {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const stats = getUserStats(user.id);
+    const stats = await getUserStats(user.id);
 
     return NextResponse.json({ stats });
   } catch (error) {

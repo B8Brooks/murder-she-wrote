@@ -4,7 +4,7 @@ import { ensureDb } from '@/lib/db';
 
 export async function GET() {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
 
     if (!user) {

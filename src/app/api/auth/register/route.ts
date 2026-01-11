@@ -5,7 +5,7 @@ import { ensureDb } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
-    ensureDb();
+    await ensureDb();
     const body = await request.json();
     const parsed = registerSchema.safeParse(body);
 

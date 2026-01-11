@@ -69,13 +69,17 @@ export async function getCurrentUser(): Promise<UserPublic | null> {
   if (!payload) return null;
 
   const db = getDb();
-  const user = db.prepare(`
-    SELECT id, email, name, created_at
-    FROM users
-    WHERE id = ?
-  `).get(payload.userId) as UserPublic | undefined;
+  const result = await db.execute({
+    sql: `
+      SELECT id, email, name, created_at
+      FROM users
+      WHERE id = ?
+    `,
+    args: [payload.userId],
+  });
 
-  return user || null;
+  if (result.rows.length === 0) return null;
+  return result.rows[0] as unknown as UserPublic;
 }
 
 // Register a new user
@@ -87,8 +91,12 @@ export async function registerUser(
   const db = getDb();
 
   // Check if email already exists
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (existing) {
+  const existingResult = await db.execute({
+    sql: 'SELECT id FROM users WHERE email = ?',
+    args: [email],
+  });
+
+  if (existingResult.rows.length > 0) {
     return { success: false, error: 'Email already registered' };
   }
 
@@ -98,10 +106,13 @@ export async function registerUser(
   const now = new Date().toISOString();
 
   try {
-    db.prepare(`
-      INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, email, passwordHash, name || null, now, now);
+    await db.execute({
+      sql: `
+        INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      args: [id, email, passwordHash, name || null, now, now],
+    });
 
     return {
       success: true,
@@ -120,15 +131,20 @@ export async function loginUser(
 ): Promise<{ success: true; user: UserPublic; token: string } | { success: false; error: string }> {
   const db = getDb();
 
-  const user = db.prepare(`
-    SELECT id, email, password_hash, name, created_at
-    FROM users
-    WHERE email = ?
-  `).get(email) as User | undefined;
+  const result = await db.execute({
+    sql: `
+      SELECT id, email, password_hash, name, created_at
+      FROM users
+      WHERE email = ?
+    `,
+    args: [email],
+  });
 
-  if (!user) {
+  if (result.rows.length === 0) {
     return { success: false, error: 'Invalid email or password' };
   }
+
+  const user = result.rows[0] as unknown as User;
 
   const valid = await verifyPassword(password, user.password_hash);
   if (!valid) {
@@ -150,13 +166,17 @@ export async function loginUser(
 }
 
 // Get user by ID
-export function getUserById(id: string): UserPublic | null {
+export async function getUserById(id: string): Promise<UserPublic | null> {
   const db = getDb();
-  const user = db.prepare(`
-    SELECT id, email, name, created_at
-    FROM users
-    WHERE id = ?
-  `).get(id) as UserPublic | undefined;
+  const result = await db.execute({
+    sql: `
+      SELECT id, email, name, created_at
+      FROM users
+      WHERE id = ?
+    `,
+    args: [id],
+  });
 
-  return user || null;
+  if (result.rows.length === 0) return null;
+  return result.rows[0] as unknown as UserPublic;
 }

@@ -7,7 +7,7 @@ import { ensureDb } from '@/lib/db';
 // Get all ratings for current user
 export async function GET(request: Request) {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    const result = getUserRatings(user.id, Math.min(limit, 100), offset);
+    const result = await getUserRatings(user.id, Math.min(limit, 100), offset);
 
     return NextResponse.json(result);
   } catch (error) {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 // Create or update a rating
 export async function POST(request: Request) {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const rating = rateEpisode(user.id, episode_id, parsed.data.rating, parsed.data.notes);
+    const rating = await rateEpisode(user.id, episode_id, parsed.data.rating, parsed.data.notes);
 
     return NextResponse.json({ rating }, { status: 201 });
   } catch (error) {

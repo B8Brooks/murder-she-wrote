@@ -10,56 +10,72 @@ import type {
 } from './types';
 
 // Get all unique seasons
-export function getSeasons(): number[] {
+export async function getSeasons(): Promise<number[]> {
   const db = getDb();
-  const result = db.prepare(`
+  const result = await db.execute(`
     SELECT DISTINCT season_number FROM episodes ORDER BY season_number
-  `).all() as { season_number: number }[];
-  return result.map((r) => r.season_number);
+  `);
+  return result.rows.map((r) => r.season_number as number);
 }
 
 // Get episode by ID with all details
-export function getEpisodeById(
+export async function getEpisodeById(
   episodeId: string,
   userId?: string
-): EpisodeWithDetails | null {
+): Promise<EpisodeWithDetails | null> {
   const db = getDb();
 
-  const episode = db.prepare(`
-    SELECT * FROM episodes WHERE id = ?
-  `).get(episodeId) as Episode | undefined;
+  const episodeResult = await db.execute({
+    sql: 'SELECT * FROM episodes WHERE id = ?',
+    args: [episodeId],
+  });
 
-  if (!episode) return null;
+  if (episodeResult.rows.length === 0) return null;
+
+  const episode = episodeResult.rows[0] as unknown as Episode;
 
   // Get guest stars
-  const guestStars = db.prepare(`
-    SELECT gs.id, gs.name
-    FROM guest_stars gs
-    JOIN episode_guest_stars egs ON gs.id = egs.guest_star_id
-    WHERE egs.episode_id = ?
-    ORDER BY gs.name
-  `).all(episodeId) as GuestStar[];
+  const guestStarsResult = await db.execute({
+    sql: `
+      SELECT gs.id, gs.name
+      FROM guest_stars gs
+      JOIN episode_guest_stars egs ON gs.id = egs.guest_star_id
+      WHERE egs.episode_id = ?
+      ORDER BY gs.name
+    `,
+    args: [episodeId],
+  });
+  const guestStars = guestStarsResult.rows as unknown as GuestStar[];
 
   // Get community rating
-  const communityRating = db.prepare(`
-    SELECT AVG(rating) as avg_rating, COUNT(*) as count
-    FROM ratings
-    WHERE episode_id = ?
-  `).get(episodeId) as { avg_rating: number | null; count: number };
+  const communityResult = await db.execute({
+    sql: `
+      SELECT AVG(rating) as avg_rating, COUNT(*) as count
+      FROM ratings
+      WHERE episode_id = ?
+    `,
+    args: [episodeId],
+  });
+  const communityRating = communityResult.rows[0] as unknown as { avg_rating: number | null; count: number };
 
   // Get user's rating and bookmark status if logged in
   let userRating: Rating | null = null;
   let isBookmarked = false;
 
   if (userId) {
-    userRating = (db.prepare(`
-      SELECT * FROM ratings WHERE user_id = ? AND episode_id = ?
-    `).get(userId, episodeId) as Rating | undefined) || null;
+    const userRatingResult = await db.execute({
+      sql: 'SELECT * FROM ratings WHERE user_id = ? AND episode_id = ?',
+      args: [userId, episodeId],
+    });
+    userRating = userRatingResult.rows.length > 0
+      ? (userRatingResult.rows[0] as unknown as Rating)
+      : null;
 
-    const bookmark = db.prepare(`
-      SELECT id FROM bookmarks WHERE user_id = ? AND episode_id = ?
-    `).get(userId, episodeId);
-    isBookmarked = !!bookmark;
+    const bookmarkResult = await db.execute({
+      sql: 'SELECT id FROM bookmarks WHERE user_id = ? AND episode_id = ?',
+      args: [userId, episodeId],
+    });
+    isBookmarked = bookmarkResult.rows.length > 0;
   }
 
   return {
@@ -68,32 +84,33 @@ export function getEpisodeById(
     user_rating: userRating,
     is_bookmarked: isBookmarked,
     community_rating: communityRating.avg_rating
-      ? Math.round(communityRating.avg_rating * 10) / 10
+      ? Math.round((communityRating.avg_rating as number) * 10) / 10
       : null,
-    rating_count: communityRating.count,
+    rating_count: Number(communityRating.count),
   };
 }
 
 // Get episode by season and episode number
-export function getEpisodeByNumber(
+export async function getEpisodeByNumber(
   seasonNumber: number,
   episodeNumber: number,
   userId?: string
-): EpisodeWithDetails | null {
+): Promise<EpisodeWithDetails | null> {
   const db = getDb();
-  const episode = db.prepare(`
-    SELECT id FROM episodes WHERE season_number = ? AND episode_number = ?
-  `).get(seasonNumber, episodeNumber) as { id: string } | undefined;
+  const result = await db.execute({
+    sql: 'SELECT id FROM episodes WHERE season_number = ? AND episode_number = ?',
+    args: [seasonNumber, episodeNumber],
+  });
 
-  if (!episode) return null;
-  return getEpisodeById(episode.id, userId);
+  if (result.rows.length === 0) return null;
+  return getEpisodeById(result.rows[0].id as string, userId);
 }
 
 // Search and filter episodes
-export function searchEpisodes(
+export async function searchEpisodes(
   filters: EpisodeFilters,
   userId?: string
-): PaginatedResult<EpisodeWithDetails> {
+): Promise<PaginatedResult<EpisodeWithDetails>> {
   const db = getDb();
   const {
     search,
@@ -110,26 +127,32 @@ export function searchEpisodes(
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
-  // Full-text search using LIKE (more reliable than FTS5 external content)
+  // Full-text search using LIKE
   let episodeIds: Set<string> | null = null;
   if (search) {
     const searchTerm = `%${search}%`;
 
     // Search in episodes table
-    const episodeResults = db.prepare(`
-      SELECT id FROM episodes
-      WHERE title LIKE ? OR synopsis LIKE ? OR setting LIKE ? OR tags LIKE ?
-    `).all(searchTerm, searchTerm, searchTerm, searchTerm) as { id: string }[];
-    episodeIds = new Set(episodeResults.map((r) => r.id));
+    const episodeResults = await db.execute({
+      sql: `
+        SELECT id FROM episodes
+        WHERE title LIKE ? OR synopsis LIKE ? OR setting LIKE ? OR tags LIKE ?
+      `,
+      args: [searchTerm, searchTerm, searchTerm, searchTerm],
+    });
+    episodeIds = new Set(episodeResults.rows.map((r) => r.id as string));
 
     // Also search guest stars
-    const guestResults = db.prepare(`
-      SELECT DISTINCT egs.episode_id
-      FROM guest_stars gs
-      JOIN episode_guest_stars egs ON gs.id = egs.guest_star_id
-      WHERE gs.name LIKE ?
-    `).all(searchTerm) as { episode_id: string }[];
-    guestResults.forEach((r) => episodeIds!.add(r.episode_id));
+    const guestResults = await db.execute({
+      sql: `
+        SELECT DISTINCT egs.episode_id
+        FROM guest_stars gs
+        JOIN episode_guest_stars egs ON gs.id = egs.guest_star_id
+        WHERE gs.name LIKE ?
+      `,
+      args: [searchTerm],
+    });
+    guestResults.rows.forEach((r) => episodeIds!.add(r.episode_id as string));
 
     if (episodeIds.size === 0) {
       return { data: [], total: 0, page, limit, total_pages: 0 };
@@ -138,7 +161,7 @@ export function searchEpisodes(
 
   // Season filter
   if (season !== undefined) {
-    conditions.push('e.season_number = ?');
+    conditions.push(`e.season_number = ?`);
     params.push(season);
   }
 
@@ -166,12 +189,10 @@ export function searchEpisodes(
     params.push(min_rating);
   }
 
-  // Build episode ID filter from FTS results
+  // Build episode ID filter from search results
   if (episodeIds) {
-    const idList = Array.from(episodeIds)
-      .map(() => '?')
-      .join(',');
-    conditions.push(`e.id IN (${idList})`);
+    const placeholders = Array.from(episodeIds).map(() => '?').join(',');
+    conditions.push(`e.id IN (${placeholders})`);
     params.push(...Array.from(episodeIds));
   }
 
@@ -185,7 +206,7 @@ export function searchEpisodes(
       orderBy = `e.title ${sort_order === 'desc' ? 'DESC' : 'ASC'}`;
       break;
     case 'rating':
-      orderBy = `e.imdb_rating ${sort_order === 'desc' ? 'DESC NULLS LAST' : 'ASC NULLS LAST'}`;
+      orderBy = `e.imdb_rating ${sort_order === 'desc' ? 'DESC' : 'ASC'}`;
       break;
     case 'episode':
     default:
@@ -193,27 +214,35 @@ export function searchEpisodes(
   }
 
   // Get total count
-  const countResult = db.prepare(`
-    SELECT COUNT(*) as total FROM episodes e ${whereClause}
-  `).get(...params) as { total: number };
+  const countResult = await db.execute({
+    sql: `SELECT COUNT(*) as total FROM episodes e ${whereClause}`,
+    args: params,
+  });
 
-  const total = countResult.total;
+  const total = Number(countResult.rows[0].total);
   const totalPages = Math.ceil(total / limit);
   const offset = (page - 1) * limit;
 
   // Get paginated results
-  const episodes = db.prepare(`
-    SELECT e.* FROM episodes e
-    ${whereClause}
-    ORDER BY ${orderBy}
-    LIMIT ? OFFSET ?
-  `).all(...params, limit, offset) as Episode[];
+  const episodesResult = await db.execute({
+    sql: `
+      SELECT e.* FROM episodes e
+      ${whereClause}
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    `,
+    args: [...params, limit, offset],
+  });
+
+  const episodes = episodesResult.rows as unknown as Episode[];
 
   // Enrich with details
-  const enriched = episodes.map((ep) => getEpisodeById(ep.id, userId)!);
+  const enriched = await Promise.all(
+    episodes.map((ep) => getEpisodeById(ep.id, userId))
+  );
 
   return {
-    data: enriched,
+    data: enriched.filter((e): e is EpisodeWithDetails => e !== null),
     total,
     page,
     limit,
@@ -222,11 +251,11 @@ export function searchEpisodes(
 }
 
 // Get episodes by season
-export function getEpisodesBySeason(
+export async function getEpisodesBySeason(
   seasonNumber: number,
   userId?: string
-): EpisodeWithDetails[] {
-  const result = searchEpisodes(
+): Promise<EpisodeWithDetails[]> {
+  const result = await searchEpisodes(
     { season: seasonNumber, limit: 100 },
     userId
   );
@@ -234,77 +263,72 @@ export function getEpisodesBySeason(
 }
 
 // Search guest stars for typeahead
-export function searchGuestStars(query: string, limit = 10): GuestStar[] {
+export async function searchGuestStars(query: string, limit = 10): Promise<GuestStar[]> {
   const db = getDb();
 
   if (!query.trim()) {
-    return db.prepare(`
-      SELECT id, name FROM guest_stars ORDER BY name LIMIT ?
-    `).all(limit) as GuestStar[];
+    const result = await db.execute({
+      sql: 'SELECT id, name FROM guest_stars ORDER BY name LIMIT ?',
+      args: [limit],
+    });
+    return result.rows as unknown as GuestStar[];
   }
 
   // Use LIKE for search
-  const results = db.prepare(`
-    SELECT id, name FROM guest_stars
-    WHERE name LIKE ?
-    ORDER BY name
-    LIMIT ?
-  `).all(`%${query}%`, limit) as GuestStar[];
+  const result = await db.execute({
+    sql: `
+      SELECT id, name FROM guest_stars
+      WHERE name LIKE ?
+      ORDER BY name
+      LIMIT ?
+    `,
+    args: [`%${query}%`, limit],
+  });
 
-  return results;
+  return result.rows as unknown as GuestStar[];
 }
 
 // Get unique settings for typeahead
-export function searchSettings(query: string, limit = 10): string[] {
+export async function searchSettings(query: string, limit = 10): Promise<string[]> {
   const db = getDb();
 
-  const results = db.prepare(`
-    SELECT DISTINCT setting FROM episodes
-    WHERE setting IS NOT NULL AND setting LIKE ?
-    ORDER BY setting
-    LIMIT ?
-  `).all(`%${query}%`, limit) as { setting: string }[];
+  const result = await db.execute({
+    sql: `
+      SELECT DISTINCT setting FROM episodes
+      WHERE setting IS NOT NULL AND setting LIKE ?
+      ORDER BY setting
+      LIMIT ?
+    `,
+    args: [`%${query}%`, limit],
+  });
 
-  return results.map((r) => r.setting);
+  return result.rows.map((r) => r.setting as string);
 }
 
 // Import episodes from data
-export function importEpisodes(episodes: EpisodeImport[]): { imported: number; errors: string[] } {
+export async function importEpisodes(episodes: EpisodeImport[]): Promise<{ imported: number; errors: string[] }> {
   const db = getDb();
   const errors: string[] = [];
   let imported = 0;
 
-  const insertEpisode = db.prepare(`
-    INSERT OR REPLACE INTO episodes (id, season_number, episode_number, title, air_date, synopsis, setting, imdb_rating, tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  for (const ep of episodes) {
+    try {
+      // Check for existing episode
+      const existingResult = await db.execute({
+        sql: 'SELECT id FROM episodes WHERE season_number = ? AND episode_number = ?',
+        args: [ep.season_number, ep.episode_number],
+      });
+      const episodeId = existingResult.rows.length > 0
+        ? (existingResult.rows[0].id as string)
+        : generateId();
 
-  const getEpisodeId = db.prepare(`
-    SELECT id FROM episodes WHERE season_number = ? AND episode_number = ?
-  `);
-
-  const insertGuestStar = db.prepare(`
-    INSERT OR IGNORE INTO guest_stars (id, name) VALUES (?, ?)
-  `);
-
-  const getGuestStarId = db.prepare(`
-    SELECT id FROM guest_stars WHERE name = ?
-  `);
-
-  const insertEpisodeGuestStar = db.prepare(`
-    INSERT OR IGNORE INTO episode_guest_stars (id, episode_id, guest_star_id)
-    VALUES (?, ?, ?)
-  `);
-
-  const transaction = db.transaction((episodes: EpisodeImport[]) => {
-    for (const ep of episodes) {
-      try {
-        // Check for existing episode
-        const existing = getEpisodeId.get(ep.season_number, ep.episode_number) as { id: string } | undefined;
-        const episodeId = existing?.id || generateId();
-
-        // Insert or update episode
-        insertEpisode.run(
+      // Insert or update episode
+      await db.execute({
+        sql: `
+          INSERT OR REPLACE INTO episodes (id, season_number, episode_number, title, air_date, synopsis, setting, imdb_rating, tags)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        args: [
           episodeId,
           ep.season_number,
           ep.episode_number,
@@ -313,39 +337,50 @@ export function importEpisodes(episodes: EpisodeImport[]): { imported: number; e
           ep.synopsis || null,
           ep.setting || null,
           ep.imdb_rating || null,
-          ep.tags ? JSON.stringify(ep.tags) : null
-        );
+          ep.tags ? JSON.stringify(ep.tags) : null,
+        ],
+      });
 
-        // Handle guest stars
-        if (ep.guest_stars && ep.guest_stars.length > 0) {
-          for (const gsName of ep.guest_stars) {
-            // Insert guest star if not exists
-            const existingGs = getGuestStarId.get(gsName) as { id: string } | undefined;
-            const gsId = existingGs?.id || generateId();
+      // Handle guest stars
+      if (ep.guest_stars && ep.guest_stars.length > 0) {
+        for (const gsName of ep.guest_stars) {
+          // Check if guest star exists
+          const existingGsResult = await db.execute({
+            sql: 'SELECT id FROM guest_stars WHERE name = ?',
+            args: [gsName],
+          });
 
-            if (!existingGs) {
-              insertGuestStar.run(gsId, gsName);
-            }
-
-            // Link guest star to episode
-            insertEpisodeGuestStar.run(generateId(), episodeId, gsId);
+          let gsId: string;
+          if (existingGsResult.rows.length > 0) {
+            gsId = existingGsResult.rows[0].id as string;
+          } else {
+            gsId = generateId();
+            await db.execute({
+              sql: 'INSERT OR IGNORE INTO guest_stars (id, name) VALUES (?, ?)',
+              args: [gsId, gsName],
+            });
           }
+
+          // Link guest star to episode
+          await db.execute({
+            sql: 'INSERT OR IGNORE INTO episode_guest_stars (id, episode_id, guest_star_id) VALUES (?, ?, ?)',
+            args: [generateId(), episodeId, gsId],
+          });
         }
-
-        imported++;
-      } catch (error) {
-        errors.push(`S${ep.season_number}E${ep.episode_number}: ${error}`);
       }
-    }
-  });
 
-  transaction(episodes);
+      imported++;
+    } catch (error) {
+      errors.push(`S${ep.season_number}E${ep.episode_number}: ${error}`);
+    }
+  }
 
   return { imported, errors };
 }
 
 // Get all guest stars
-export function getAllGuestStars(): GuestStar[] {
+export async function getAllGuestStars(): Promise<GuestStar[]> {
   const db = getDb();
-  return db.prepare('SELECT id, name FROM guest_stars ORDER BY name').all() as GuestStar[];
+  const result = await db.execute('SELECT id, name FROM guest_stars ORDER BY name');
+  return result.rows as unknown as GuestStar[];
 }

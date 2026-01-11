@@ -9,14 +9,14 @@ export async function GET(
   { params }: { params: Promise<{ episodeId: string }> }
 ) {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { episodeId } = await params;
-    const bookmarked = isBookmarked(user.id, episodeId);
+    const bookmarked = await isBookmarked(user.id, episodeId);
 
     return NextResponse.json({ is_bookmarked: bookmarked });
   } catch (error) {
@@ -31,14 +31,14 @@ export async function DELETE(
   { params }: { params: Promise<{ episodeId: string }> }
 ) {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { episodeId } = await params;
-    const deleted = removeBookmark(user.id, episodeId);
+    const deleted = await removeBookmark(user.id, episodeId);
 
     if (!deleted) {
       return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 });

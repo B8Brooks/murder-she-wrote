@@ -6,7 +6,7 @@ import { ensureDb } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
-    ensureDb();
+    await ensureDb();
     const { searchParams } = new URL(request.url);
     const params = Object.fromEntries(searchParams.entries());
 
@@ -19,8 +19,8 @@ export async function GET(request: Request) {
     }
 
     const user = await getCurrentUser();
-    const results = searchEpisodes(parsed.data, user?.id);
-    const seasons = getSeasons();
+    const results = await searchEpisodes(parsed.data, user?.id);
+    const seasons = await getSeasons();
 
     return NextResponse.json({
       ...results,

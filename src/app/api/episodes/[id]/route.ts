@@ -8,10 +8,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    ensureDb();
+    await ensureDb();
     const { id } = await params;
     const user = await getCurrentUser();
-    const episode = getEpisodeById(id, user?.id);
+    const episode = await getEpisodeById(id, user?.id);
 
     if (!episode) {
       return NextResponse.json({ error: 'Episode not found' }, { status: 404 });

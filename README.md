@@ -16,8 +16,8 @@ A web application for browsing and rating episodes of the classic TV series "Mur
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router)
-- **Database**: SQLite with better-sqlite3
-- **Search**: SQLite FTS5 for full-text search
+- **Database**: SQLite with @libsql/client (Turso-compatible)
+- **Search**: SQLite LIKE queries for full-text search
 - **Auth**: JWT-based with bcrypt password hashing
 - **Styling**: Tailwind CSS
 - **Validation**: Zod
@@ -203,78 +203,84 @@ murder-she-wrote/
     └── dev.db                # SQLite database file
 ```
 
-## Next Steps for Scaling
+## Deployment
 
-### Deploying to Railway (Recommended)
+### Deploying to Vercel + Turso (Recommended)
 
-Railway supports persistent volumes, making it ideal for SQLite apps.
+This app uses `@libsql/client` which works with both local SQLite files and Turso cloud databases.
 
-1. **Create a Railway account** at [railway.app](https://railway.app)
+#### Step 1: Create a Turso Database
 
-2. **Install Railway CLI** (optional but helpful):
+1. **Sign up** at [turso.tech](https://turso.tech) (free tier: 9GB storage, 500M reads/month)
+
+2. **Install the Turso CLI**:
    ```bash
-   npm install -g @railway/cli
-   railway login
+   # macOS
+   brew install tursodatabase/tap/turso
+
+   # Linux
+   curl -sSfL https://get.tur.so/install.sh | bash
    ```
 
-3. **Deploy from GitHub**:
-   - Push your code to GitHub
-   - In Railway dashboard, click "New Project" → "Deploy from GitHub repo"
-   - Select your repository
-   - Railway will auto-detect Next.js and deploy
-
-4. **Add persistent volume** (important for SQLite!):
-   - Go to your service in Railway dashboard
-   - Click "Settings" → "Volumes"
-   - Add a volume mounted at `/app/prisma`
-   - This ensures your database persists across deploys
-
-5. **Set environment variables**:
-   ```
-   DATABASE_URL=file:./prisma/dev.db
-   JWT_SECRET=<generate-a-secure-random-string>
-   NEXT_PUBLIC_APP_URL=https://your-app.up.railway.app
-   ```
-
-6. **Initialize the database** (first time only):
+3. **Login and create a database**:
    ```bash
-   railway run npm run setup
+   turso auth login
+   turso db create murder-she-wrote
    ```
 
-Your app will be live at `https://your-app.up.railway.app`!
+4. **Get your connection details**:
+   ```bash
+   turso db show murder-she-wrote --url
+   turso db tokens create murder-she-wrote
+   ```
 
-### Alternative: Vercel + Turso
+#### Step 2: Deploy to Vercel
 
-For serverless deployment, you'd need to switch to Turso (cloud SQLite):
+1. **Push your code to GitHub**
 
-1. Create a Turso database at [turso.tech](https://turso.tech)
-2. Update the database code to use `@libsql/client` instead of `better-sqlite3`
-3. Deploy to Vercel
+2. **Import to Vercel**:
+   - Go to [vercel.com](https://vercel.com)
+   - Click "New Project" → Import your repository
+
+3. **Set environment variables** in Vercel dashboard:
+   ```
+   TURSO_DATABASE_URL=libsql://murder-she-wrote-YOUR_USERNAME.turso.io
+   TURSO_AUTH_TOKEN=your-token-from-step-4
+   JWT_SECRET=<generate-with: openssl rand -base64 32>
+   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+   ```
+
+4. **Deploy!** Vercel will build and deploy automatically.
+
+#### Step 3: Initialize the Database
+
+After first deploy, run the setup script:
+
+```bash
+# Option 1: Using Vercel CLI
+vercel env pull .env.local
+npm run setup
+
+# Option 2: Using Turso CLI directly
+turso db shell murder-she-wrote < schema.sql
+```
+
+Your app is now live at `https://your-app.vercel.app`!
+
+### Alternative: Railway (Traditional Hosting)
+
+Railway supports persistent volumes, so you can use local SQLite files:
+
+1. Create account at [railway.app](https://railway.app)
+2. Deploy from GitHub
+3. Add volume mounted at `/app/prisma`
+4. Set `DATABASE_URL=file:./prisma/dev.db`
+5. Run `railway run npm run setup`
 
 ### Other Hosting Options
 - **Render**: Similar to Railway, supports persistent storage
 - **Fly.io**: Good for SQLite with volume mounts
 - **Self-hosted**: Any VPS (DigitalOcean, Linode, etc.)
-
-### Moving from SQLite to PostgreSQL
-
-1. Update `better-sqlite3` to `pg` or use Prisma with PostgreSQL
-2. Migrate FTS5 to PostgreSQL full-text search (`tsvector`, `tsquery`)
-3. Update database connection URL
-4. Migrate data using export/import scripts
-
-### Improving Search
-- Add search result ranking/relevance scoring
-- Implement fuzzy matching for typo tolerance
-- Add search suggestions/autocomplete
-- Consider Elasticsearch for larger datasets
-
-### Adding Episode Images
-1. Add `image_url` or `image_path` column to episodes table
-2. Create image upload/storage solution (S3, Cloudinary, or local)
-3. Update import script to handle image URLs
-4. Add image display to episode cards and detail pages
-5. Implement lazy loading for performance
 
 ## License
 

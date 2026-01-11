@@ -10,11 +10,11 @@ import type { EpisodeImport } from '../src/lib/types';
 
 async function main() {
   console.log('Initializing database...');
-  initDb();
+  await initDb();
   console.log('Database schema created successfully.');
 
   console.log('\nSeeding episodes...');
-  const result = importEpisodes(seedEpisodes as EpisodeImport[]);
+  const result = await importEpisodes(seedEpisodes as EpisodeImport[]);
   console.log(`Imported ${result.imported} episodes.`);
 
   if (result.errors.length > 0) {

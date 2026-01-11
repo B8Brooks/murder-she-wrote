@@ -6,7 +6,7 @@ import { ensureDb } from '@/lib/db';
 // Get all bookmarks for current user
 export async function GET(request: Request) {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    const result = getUserBookmarks(user.id, Math.min(limit, 100), offset);
+    const result = await getUserBookmarks(user.id, Math.min(limit, 100), offset);
 
     return NextResponse.json(result);
   } catch (error) {
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 // Create a bookmark
 export async function POST(request: Request) {
   try {
-    ensureDb();
+    await ensureDb();
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Episode ID is required' }, { status: 400 });
     }
 
-    const bookmark = bookmarkEpisode(user.id, episode_id);
+    const bookmark = await bookmarkEpisode(user.id, episode_id);
 
     return NextResponse.json({ bookmark }, { status: 201 });
   } catch (error) {

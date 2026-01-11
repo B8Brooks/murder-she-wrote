@@ -118,10 +118,10 @@ async function main() {
   console.log(`Found ${episodes.length} episodes to import.`);
 
   // Initialize DB if needed
-  initDb();
+  await initDb();
 
   console.log('Importing episodes...');
-  const result = importEpisodes(episodes);
+  const result = await importEpisodes(episodes);
 
   console.log(`\nImported ${result.imported} episodes.`);
 
