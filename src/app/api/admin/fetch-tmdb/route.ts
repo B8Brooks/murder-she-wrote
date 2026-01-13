@@ -17,6 +17,60 @@ interface TMDBSeason {
   episodes: TMDBEpisode[];
 }
 
+// Detect location from synopsis text
+function detectSetting(synopsis: string, title: string): string {
+  const text = (synopsis + ' ' + title).toLowerCase();
+
+  // Check for explicit location mentions
+  const locations: [RegExp, string][] = [
+    [/cabot cove/i, 'Cabot Cove, Maine'],
+    [/new york|manhattan|broadway|nyc/i, 'New York City'],
+    [/los angeles|hollywood|beverly hills|la\b/i, 'Los Angeles'],
+    [/san francisco/i, 'San Francisco'],
+    [/london|england|british/i, 'London, England'],
+    [/ireland|irish|dublin/i, 'Ireland'],
+    [/las vegas|vegas/i, 'Las Vegas'],
+    [/washington\s*d\.?c\.?/i, 'Washington, D.C.'],
+    [/chicago/i, 'Chicago'],
+    [/boston/i, 'Boston'],
+    [/new orleans|mardi gras/i, 'New Orleans'],
+    [/hawaii|honolulu/i, 'Hawaii'],
+    [/mexico/i, 'Mexico'],
+    [/paris|france|french/i, 'Paris, France'],
+    [/italy|italian|rome|venice/i, 'Italy'],
+    [/cruise|ship|aboard/i, 'Cruise Ship'],
+    [/circus|carnival/i, 'Traveling Circus'],
+  ];
+
+  for (const [pattern, location] of locations) {
+    if (pattern.test(text)) {
+      return location;
+    }
+  }
+
+  // Cabot Cove indicators (Jessica's hometown - stories with friends, neighbors, students)
+  const cabotCoveIndicators = [
+    /her (close )?friends/i,
+    /former students/i,
+    /neighbors?/i,
+    /sheriff/i,
+    /seth|amos|mort/i,  // Recurring Cabot Cove characters
+    /local doctor/i,
+    /small town/i,
+    /her hometown/i,
+    /maine/i,
+  ];
+
+  for (const pattern of cabotCoveIndicators) {
+    if (pattern.test(text)) {
+      return 'Cabot Cove, Maine';
+    }
+  }
+
+  // Default - many episodes are in various locations
+  return '';
+}
+
 export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -39,6 +93,7 @@ export async function POST(request: Request) {
       episode_number: number;
       air_date: string;
       synopsis: string;
+      setting: string;
       guest_stars: string[];
     }> = [];
 
@@ -56,12 +111,14 @@ export async function POST(request: Request) {
       const data: TMDBSeason = await response.json();
 
       for (const ep of data.episodes) {
+        const synopsis = ep.overview || 'Synopsis not available.';
         episodes.push({
           title: ep.name,
           season_number: season,
           episode_number: ep.episode_number,
           air_date: ep.air_date || '',
-          synopsis: ep.overview || 'Synopsis not available.',
+          synopsis,
+          setting: detectSetting(synopsis, ep.name),
           guest_stars: ep.guest_stars?.slice(0, 5).map(g => g.name) || []
         });
       }
