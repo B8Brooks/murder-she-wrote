@@ -226,7 +226,12 @@ export default function EpisodeDetailPage({
           {episode.setting && (
             <div>
               <span className="text-slate-500 text-xs block">Setting</span>
-              <span className="text-white">{episode.setting}</span>
+              <Link
+                href={`/?setting=${encodeURIComponent(episode.setting)}`}
+                className="text-white hover:text-amber-400 transition"
+              >
+                {episode.setting}
+              </Link>
             </div>
           )}
 
@@ -266,12 +271,13 @@ export default function EpisodeDetailPage({
             <h2 className="text-slate-400 text-sm font-medium mb-2">Guest Stars</h2>
             <div className="flex flex-wrap gap-2">
               {episode.guest_stars.map((gs) => (
-                <span
+                <Link
                   key={gs.id}
-                  className="bg-slate-700 text-white px-3 py-1 rounded-full text-sm"
+                  href={`/?guest_star=${encodeURIComponent(gs.name)}`}
+                  className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded-full text-sm transition"
                 >
                   {gs.name}
-                </span>
+                </Link>
               ))}
             </div>
           </div>
