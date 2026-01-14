@@ -25,7 +25,7 @@ export default function EpisodeCard({ episode }: EpisodeCardProps) {
             <span className="text-amber-400 text-sm font-semibold">
               {episode.imdb_rating.toFixed(1)}
             </span>
-            <span className="text-slate-500 text-xs">IMDb</span>
+            <span className="text-slate-500 text-xs">TMDB</span>
           </div>
         )}
       </div>

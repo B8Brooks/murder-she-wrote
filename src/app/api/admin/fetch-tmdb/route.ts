@@ -10,6 +10,7 @@ interface TMDBEpisode {
   name: string;
   overview: string;
   air_date: string;
+  vote_average?: number;
   guest_stars?: { name: string }[];
 }
 
@@ -99,6 +100,7 @@ export async function POST(request: Request) {
       air_date: string;
       synopsis: string;
       setting: string;
+      imdb_rating?: number;
       guest_stars: string[];
     }> = [];
 
@@ -149,6 +151,7 @@ export async function POST(request: Request) {
           air_date: ep.air_date || '',
           synopsis,
           setting: detectSetting(synopsis, ep.name),
+          imdb_rating: ep.vote_average || undefined,
           guest_stars: guestStars
         });
       }

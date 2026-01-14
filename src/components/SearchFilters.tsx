@@ -177,10 +177,10 @@ export default function SearchFilters({ seasons }: SearchFiltersProps) {
           className="bg-slate-700 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
         >
           <option value="">Any Rating</option>
-          <option value="9">9+ IMDb</option>
-          <option value="8">8+ IMDb</option>
-          <option value="7">7+ IMDb</option>
-          <option value="6">6+ IMDb</option>
+          <option value="9">9+ TMDB</option>
+          <option value="8">8+ TMDB</option>
+          <option value="7">7+ TMDB</option>
+          <option value="6">6+ TMDB</option>
         </select>
 
         {/* Sort */}

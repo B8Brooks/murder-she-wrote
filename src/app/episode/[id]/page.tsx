@@ -232,7 +232,7 @@ export default function EpisodeDetailPage({
 
           {episode.imdb_rating && (
             <div>
-              <span className="text-slate-500 text-xs block">IMDb Rating</span>
+              <span className="text-slate-500 text-xs block">TMDB Rating</span>
               <span className="text-amber-400 font-semibold">
                 {episode.imdb_rating.toFixed(1)}/10
               </span>
