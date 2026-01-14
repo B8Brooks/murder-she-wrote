@@ -17,6 +17,11 @@ interface TMDBSeason {
   episodes: TMDBEpisode[];
 }
 
+interface TMDBCredits {
+  cast?: { name: string; order: number }[];
+  guest_stars?: { name: string; order: number }[];
+}
+
 // Detect location from synopsis text
 function detectSetting(synopsis: string, title: string): string {
   const text = (synopsis + ' ' + title).toLowerCase();
@@ -112,6 +117,31 @@ export async function POST(request: Request) {
 
       for (const ep of data.episodes) {
         const synopsis = ep.overview || 'Synopsis not available.';
+
+        // Fetch full credits for each episode to get complete guest star list
+        let guestStars: string[] = [];
+        try {
+          const creditsResponse = await fetch(
+            `https://api.themoviedb.org/3/tv/${TMDB_SHOW_ID}/season/${season}/episode/${ep.episode_number}/credits?api_key=${apiKey}`
+          );
+          if (creditsResponse.ok) {
+            const credits: TMDBCredits = await creditsResponse.json();
+            // Combine guest_stars and cast (excluding Angela Lansbury who is the main star)
+            const allCast = [
+              ...(credits.guest_stars || []),
+              ...(credits.cast || [])
+            ]
+              .filter(c => !c.name.includes('Angela Lansbury'))
+              .sort((a, b) => a.order - b.order)
+              .slice(0, 10)
+              .map(c => c.name);
+            guestStars = allCast;
+          }
+        } catch {
+          // Fall back to basic guest stars if credits fetch fails
+          guestStars = ep.guest_stars?.slice(0, 5).map(g => g.name) || [];
+        }
+
         episodes.push({
           title: ep.name,
           season_number: season,
@@ -119,7 +149,7 @@ export async function POST(request: Request) {
           air_date: ep.air_date || '',
           synopsis,
           setting: detectSetting(synopsis, ep.name),
-          guest_stars: ep.guest_stars?.slice(0, 5).map(g => g.name) || []
+          guest_stars: guestStars
         });
       }
     }
