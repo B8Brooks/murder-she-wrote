@@ -23,6 +23,11 @@ export const episodeFiltersSchema = z.object({
   sort_order: z.enum(['asc', 'desc']).optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(100).optional().default(20),
+    max_violence: z.coerce.number().int().min(0).max(3).optional(),
+  max_sex: z.coerce.number().int().min(0).max(3).optional(),
+  max_profanity: z.coerce.number().int().min(0).max(3).optional(),
+  max_alcohol: z.coerce.number().int().min(0).max(3).optional(),
+  max_frightening: z.coerce.number().int().min(0).max(3).optional(),
 });
 
 // Rating validations
@@ -53,3 +58,27 @@ export const episodeImportSchema = z.object({
 });
 
 export const bulkImportSchema = z.array(episodeImportSchema);
+
+// Parental guide validations
+export const parentalGuideSchema = z.object({
+  violence_severity: z.number().int().min(0).max(3),
+  violence_description: z.string().nullable(),
+  sex_severity: z.number().int().min(0).max(3),
+  sex_description: z.string().nullable(),
+  profanity_severity: z.number().int().min(0).max(3),
+  profanity_description: z.string().nullable(),
+  alcohol_severity: z.number().int().min(0).max(3),
+  alcohol_description: z.string().nullable(),
+  frightening_severity: z.number().int().min(0).max(3),
+  frightening_description: z.string().nullable(),
+});
+
+export const userParentalPreferencesSchema = z.object({
+  filter_enabled: z.boolean(),
+  max_violence: z.number().int().min(0).max(3),
+  max_sex: z.number().int().min(0).max(3),
+  max_profanity: z.number().int().min(0).max(3),
+  max_alcohol: z.number().int().min(0).max(3),
+  max_frightening: z.number().int().min(0).max(3),
+});
+

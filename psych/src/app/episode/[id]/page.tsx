@@ -4,6 +4,8 @@ import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import StarRating from '@/components/StarRating';
+import ParentalGuideBadge from '@/components/ParentalGuideBadge';
+import ParentalGuideDetails from '@/components/ParentalGuideDetails';
 import { useAuth } from '@/context/AuthContext';
 import type { EpisodeWithDetails } from '@/lib/types';
 
@@ -351,6 +353,17 @@ export default function EpisodeDetailPage({
             </p>
           )}
         </div>
+
+        {/* Parental Guide Section */}
+        {episode.parental_guide && (
+          <div className="border-t border-slate-700 pt-6 mt-6">
+            <h2 className="text-white font-medium mb-4">Parental Guide</h2>
+            <ParentalGuideBadge guide={episode.parental_guide} />
+            <div className="mt-4">
+              <ParentalGuideDetails guide={episode.parental_guide} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

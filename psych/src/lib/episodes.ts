@@ -7,6 +7,8 @@ import type {
   PaginatedResult,
   EpisodeImport,
   Rating,
+  ParentalGuide,
+  UserParentalPreferences,
 } from './types';
 
 // Get all unique seasons
@@ -78,6 +80,15 @@ export async function getEpisodeById(
     isBookmarked = bookmarkResult.rows.length > 0;
   }
 
+  // Get parental guide
+  const parentalGuideResult = await db.execute({
+    sql: 'SELECT * FROM parental_guides WHERE episode_id = ?',
+    args: [episodeId],
+  });
+  const parentalGuide = parentalGuideResult.rows.length > 0
+    ? (parentalGuideResult.rows[0] as unknown as ParentalGuide)
+    : null;
+
   return {
     ...episode,
     guest_stars: guestStars,
@@ -87,6 +98,7 @@ export async function getEpisodeById(
       ? Math.round((communityRating.avg_rating as number) * 10) / 10
       : null,
     rating_count: Number(communityRating.count),
+    parental_guide: parentalGuide,
   };
 }
 
@@ -122,6 +134,11 @@ export async function searchEpisodes(
     sort_order = 'asc',
     page = 1,
     limit = 20,
+    max_violence,
+    max_sex,
+    max_profanity,
+    max_alcohol,
+    max_frightening,
   } = filters;
 
   const conditions: string[] = [];
@@ -187,6 +204,57 @@ export async function searchEpisodes(
   if (min_rating !== undefined) {
     conditions.push('e.imdb_rating >= ?');
     params.push(min_rating);
+  }
+
+  // Parental guide filters
+  if (max_violence !== undefined) {
+    conditions.push(`
+      NOT EXISTS (
+        SELECT 1 FROM parental_guides pg
+        WHERE pg.episode_id = e.id AND pg.violence_severity > ?
+      )
+    `);
+    params.push(max_violence);
+  }
+
+  if (max_sex !== undefined) {
+    conditions.push(`
+      NOT EXISTS (
+        SELECT 1 FROM parental_guides pg
+        WHERE pg.episode_id = e.id AND pg.sex_severity > ?
+      )
+    `);
+    params.push(max_sex);
+  }
+
+  if (max_profanity !== undefined) {
+    conditions.push(`
+      NOT EXISTS (
+        SELECT 1 FROM parental_guides pg
+        WHERE pg.episode_id = e.id AND pg.profanity_severity > ?
+      )
+    `);
+    params.push(max_profanity);
+  }
+
+  if (max_alcohol !== undefined) {
+    conditions.push(`
+      NOT EXISTS (
+        SELECT 1 FROM parental_guides pg
+        WHERE pg.episode_id = e.id AND pg.alcohol_severity > ?
+      )
+    `);
+    params.push(max_alcohol);
+  }
+
+  if (max_frightening !== undefined) {
+    conditions.push(`
+      NOT EXISTS (
+        SELECT 1 FROM parental_guides pg
+        WHERE pg.episode_id = e.id AND pg.frightening_severity > ?
+      )
+    `);
+    params.push(max_frightening);
   }
 
   // Build episode ID filter from search results
@@ -383,4 +451,21 @@ export async function getAllGuestStars(): Promise<GuestStar[]> {
   const db = getDb();
   const result = await db.execute('SELECT id, name FROM guest_stars ORDER BY name');
   return result.rows as unknown as GuestStar[];
+}
+
+// Get user's parental preferences
+export async function getUserParentalPreferences(userId: string): Promise<UserParentalPreferences | null> {
+  const db = getDb();
+  const result = await db.execute({
+    sql: 'SELECT * FROM user_parental_preferences WHERE user_id = ?',
+    args: [userId],
+  });
+
+  if (result.rows.length === 0) return null;
+
+  const prefs = result.rows[0] as any;
+  return {
+    ...prefs,
+    filter_enabled: prefs.filter_enabled === 1,
+  } as UserParentalPreferences;
 }

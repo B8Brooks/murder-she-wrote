@@ -33,6 +33,9 @@ export default function Header() {
                 <Link href="/profile" className="text-slate-300 hover:text-white text-sm">
                   My Profile
                 </Link>
+                <Link href="/preferences" className="text-slate-300 hover:text-white text-sm">
+                  Preferences
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-slate-400 hover:text-white text-sm"

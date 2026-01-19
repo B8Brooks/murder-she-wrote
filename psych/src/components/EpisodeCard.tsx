@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import StarRating from './StarRating';
+import ParentalGuideBadge from './ParentalGuideBadge';
 import type { EpisodeWithDetails } from '@/lib/types';
 
 interface EpisodeCardProps {
@@ -63,6 +64,13 @@ export default function EpisodeCard({ episode }: EpisodeCardProps) {
               {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Parental Guide Badge */}
+      {episode.parental_guide && (
+        <div className="mt-3 pt-3 border-t border-slate-700">
+          <ParentalGuideBadge guide={episode.parental_guide} compact={true} />
         </div>
       )}
 

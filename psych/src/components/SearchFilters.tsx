@@ -19,6 +19,15 @@ export default function SearchFilters({ seasons }: SearchFiltersProps) {
   const [sortBy, setSortBy] = useState(searchParams.get('sort_by') || 'episode');
   const [sortOrder, setSortOrder] = useState(searchParams.get('sort_order') || 'asc');
 
+  // Parental guide filters
+  const [maxViolence, setMaxViolence] = useState(searchParams.get('max_violence') || '');
+  const [maxSex, setMaxSex] = useState(searchParams.get('max_sex') || '');
+  const [maxProfanity, setMaxProfanity] = useState(searchParams.get('max_profanity') || '');
+  const [maxAlcohol, setMaxAlcohol] = useState(searchParams.get('max_alcohol') || '');
+  const [maxFrightening, setMaxFrightening] = useState(searchParams.get('max_frightening') || '');
+
+  const [showParentalFilters, setShowParentalFilters] = useState(false);
+
   const [guestStarSuggestions, setGuestStarSuggestions] = useState<string[]>([]);
   const [settingSuggestions, setSettingSuggestions] = useState<string[]>([]);
   const [showGuestStarSuggestions, setShowGuestStarSuggestions] = useState(false);
@@ -34,9 +43,14 @@ export default function SearchFilters({ seasons }: SearchFiltersProps) {
     if (minRating) params.set('min_rating', minRating);
     if (sortBy !== 'episode') params.set('sort_by', sortBy);
     if (sortOrder !== 'asc') params.set('sort_order', sortOrder);
+    if (maxViolence) params.set('max_violence', maxViolence);
+    if (maxSex) params.set('max_sex', maxSex);
+    if (maxProfanity) params.set('max_profanity', maxProfanity);
+    if (maxAlcohol) params.set('max_alcohol', maxAlcohol);
+    if (maxFrightening) params.set('max_frightening', maxFrightening);
 
     router.push(`/?${params.toString()}`);
-  }, [search, season, guestStar, setting, minRating, sortBy, sortOrder, router]);
+  }, [search, season, guestStar, setting, minRating, sortBy, sortOrder, maxViolence, maxSex, maxProfanity, maxAlcohol, maxFrightening, router]);
 
   // Debounce the filter update
   useEffect(() => {
@@ -47,7 +61,6 @@ export default function SearchFilters({ seasons }: SearchFiltersProps) {
   // Fetch guest star suggestions
   useEffect(() => {
     if (guestStar.length < 2) {
-      // Clear is handled via fetch returning empty
       return;
     }
     fetch(`/api/guest-stars?q=${encodeURIComponent(guestStar)}`)
@@ -60,7 +73,6 @@ export default function SearchFilters({ seasons }: SearchFiltersProps) {
   // Fetch setting suggestions
   useEffect(() => {
     if (setting.length < 2) {
-      // Clear is handled via fetch returning empty
       return;
     }
     fetch(`/api/settings?q=${encodeURIComponent(setting)}`)
@@ -78,10 +90,15 @@ export default function SearchFilters({ seasons }: SearchFiltersProps) {
     setMinRating('');
     setSortBy('episode');
     setSortOrder('asc');
+    setMaxViolence('');
+    setMaxSex('');
+    setMaxProfanity('');
+    setMaxAlcohol('');
+    setMaxFrightening('');
     router.push('/');
   };
 
-  const hasFilters = search || season || guestStar || setting || minRating || sortBy !== 'episode' || sortOrder !== 'asc';
+  const hasFilters = search || season || guestStar || setting || minRating || sortBy !== 'episode' || sortOrder !== 'asc' || maxViolence || maxSex || maxProfanity || maxAlcohol || maxFrightening;
 
   return (
     <div className="bg-slate-800 rounded-lg p-4 mb-6">
@@ -200,6 +217,88 @@ export default function SearchFilters({ seasons }: SearchFiltersProps) {
           <option value="rating-desc">Rating (high-low)</option>
           <option value="rating-asc">Rating (low-high)</option>
         </select>
+      </div>
+
+      {/* Parental Guide Filters - Collapsible */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowParentalFilters(!showParentalFilters)}
+          className="flex items-center gap-2 text-slate-300 hover:text-white text-sm mb-2"
+        >
+          <svg
+            className={`w-4 h-4 transition-transform ${showParentalFilters ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          Content Filters (Parental Guide)
+        </button>
+
+        {showParentalFilters && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pl-6">
+            <select
+              value={maxViolence}
+              onChange={(e) => setMaxViolence(e.target.value)}
+              className="bg-slate-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Violence: Any</option>
+              <option value="0">None</option>
+              <option value="1">Mild or less</option>
+              <option value="2">Moderate or less</option>
+              <option value="3">Severe or less</option>
+            </select>
+
+            <select
+              value={maxSex}
+              onChange={(e) => setMaxSex(e.target.value)}
+              className="bg-slate-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Sex/Nudity: Any</option>
+              <option value="0">None</option>
+              <option value="1">Mild or less</option>
+              <option value="2">Moderate or less</option>
+              <option value="3">Severe or less</option>
+            </select>
+
+            <select
+              value={maxProfanity}
+              onChange={(e) => setMaxProfanity(e.target.value)}
+              className="bg-slate-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Profanity: Any</option>
+              <option value="0">None</option>
+              <option value="1">Mild or less</option>
+              <option value="2">Moderate or less</option>
+              <option value="3">Severe or less</option>
+            </select>
+
+            <select
+              value={maxAlcohol}
+              onChange={(e) => setMaxAlcohol(e.target.value)}
+              className="bg-slate-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Alcohol/Drugs: Any</option>
+              <option value="0">None</option>
+              <option value="1">Mild or less</option>
+              <option value="2">Moderate or less</option>
+              <option value="3">Severe or less</option>
+            </select>
+
+            <select
+              value={maxFrightening}
+              onChange={(e) => setMaxFrightening(e.target.value)}
+              className="bg-slate-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Frightening: Any</option>
+              <option value="0">None</option>
+              <option value="1">Mild or less</option>
+              <option value="2">Moderate or less</option>
+              <option value="3">Severe or less</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Clear filters */}

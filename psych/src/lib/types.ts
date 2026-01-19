@@ -10,6 +10,7 @@ export interface Episode {
   setting: string | null;
   imdb_rating: number | null;
   tags: string | null; // JSON array as string
+  imdb_id: string | null; // IMDb episode ID
 }
 
 export interface EpisodeWithDetails extends Episode {
@@ -18,11 +19,42 @@ export interface EpisodeWithDetails extends Episode {
   is_bookmarked?: boolean;
   community_rating?: number | null;
   rating_count?: number;
+  parental_guide?: ParentalGuide | null;
 }
 
 export interface GuestStar {
   id: string;
   name: string;
+}
+
+export interface ParentalGuide {
+  id: string;
+  episode_id: string;
+  imdb_id: string | null;
+  violence_severity: number;
+  violence_description: string | null;
+  sex_severity: number;
+  sex_description: string | null;
+  profanity_severity: number;
+  profanity_description: string | null;
+  alcohol_severity: number;
+  alcohol_description: string | null;
+  frightening_severity: number;
+  frightening_description: string | null;
+  scraped_at: string;
+}
+
+export interface UserParentalPreferences {
+  id: string;
+  user_id: string;
+  filter_enabled: boolean;
+  max_violence: number;
+  max_sex: number;
+  max_profanity: number;
+  max_alcohol: number;
+  max_frightening: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface User {
@@ -85,6 +117,11 @@ export interface EpisodeFilters {
   sort_order?: 'asc' | 'desc';
   page?: number;
   limit?: number;
+    max_violence?: number;
+  max_sex?: number;
+  max_profanity?: number;
+  max_alcohol?: number;
+  max_frightening?: number;
 }
 
 export interface PaginatedResult<T> {
