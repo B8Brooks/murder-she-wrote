@@ -98,7 +98,7 @@ export async function getUserRatings(
   const ratingsResult = await db.execute({
     sql: `
       SELECT r.*, e.id as ep_id, e.season_number, e.episode_number, e.title,
-             e.air_date, e.synopsis, e.setting, e.imdb_rating, e.tags
+       e.air_date, e.synopsis, e.setting, e.imdb_rating, e.tags, e.imdb_id
       FROM ratings r
       JOIN episodes e ON r.episode_id = e.id
       WHERE r.user_id = ?
@@ -118,6 +118,7 @@ export async function getUserRatings(
     setting: string | null;
     imdb_rating: number | null;
     tags: string | null;
+    imdb_id: string | null;
   }>;
 
   return {
@@ -139,6 +140,7 @@ export async function getUserRatings(
         setting: r.setting,
         imdb_rating: r.imdb_rating,
         tags: r.tags,
+        imdb_id: r.imdb_id,
       },
     })),
     total,
@@ -210,8 +212,8 @@ export async function getUserBookmarks(
 
   const bookmarksResult = await db.execute({
     sql: `
-      SELECT b.*, e.id as ep_id, e.season_number, e.episode_number, e.title,
-             e.air_date, e.synopsis, e.setting, e.imdb_rating, e.tags
+      SELECT r.*, e.id as ep_id, e.season_number, e.episode_number, e.title,
+       e.air_date, e.synopsis, e.setting, e.imdb_rating, e.tags, e.imdb_id
       FROM bookmarks b
       JOIN episodes e ON b.episode_id = e.id
       WHERE b.user_id = ?
@@ -231,6 +233,7 @@ export async function getUserBookmarks(
     setting: string | null;
     imdb_rating: number | null;
     tags: string | null;
+    imdb_id: string | null;
   }>;
 
   return {
@@ -249,6 +252,7 @@ export async function getUserBookmarks(
         setting: b.setting,
         imdb_rating: b.imdb_rating,
         tags: b.tags,
+        imdb_id: b.imdb_id,
       },
     })),
     total,
